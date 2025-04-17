@@ -19,9 +19,9 @@
    abc123...def456
    789xyz...ghi012
    ```
-6.保存（Ctrl+O，Enter），退出（Ctrl+X）
+ 6.保存（Ctrl+O，Enter），退出（Ctrl+X）
 
-7. 编辑代理文件:
+7. 编辑代理文件，私钥1对应代理1登录（如需本地直连代理对应行数需要留空）:
    ```bash
    nano proxies.txt
    ```
@@ -30,7 +30,7 @@
    http://IP:PORT
    socks5://IP:PORT
    ```
-9.保存（Ctrl+O，Enter），退出（Ctrl+X）
+ 9.保存（Ctrl+O，Enter），退出（Ctrl+X）
 10. 新建会话:
    ```bash
    screen -S takerbot
