@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# Installation script for Taker Quest environment on Ubuntu
-# Sets up virtual environment, installs dependencies, creates private_keys.txt and proxies.txt
-# Does not run the script
-
 # Set project directory
 PROJECT_DIR=~/taker_quest
 echo "Creating project directory: $PROJECT_DIR"
