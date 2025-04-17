@@ -41,4 +41,5 @@
    ```bash
    deactivate
    rm -rf ~/taker_quest
+   rm install_taker.sh
    ```
