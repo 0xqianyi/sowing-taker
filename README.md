@@ -19,20 +19,20 @@
    abc123...def456
    789xyz...ghi012
    ```
- 7. 编辑代理文件，私钥1对应代理1登录（如需本地直连代理对应行数需要留空）:
+ 6. 编辑代理文件，私钥1对应代理1登录（如需本地直连代理对应行数需要留空）:
    ```bash
    nano proxies.txt
    ```
- 8. 示例:
+ 7. 示例:
    ```bash
    http://IP:PORT
    socks5://IP:PORT
    ```
- 10. 新建会话:
+ 8. 新建会话:
    ```bash
    screen -S takerbot
    ```
- 10. 运行脚本:
+ 9. 运行脚本:
    ```bash
    python taker_checkin.py
    ```
