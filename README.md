@@ -31,6 +31,7 @@
    socks5://IP:PORT
    ```
  9.保存（Ctrl+O，Enter），退出（Ctrl+X）
+ 
  10. 新建会话:
    ```bash
    screen -S takerbot
