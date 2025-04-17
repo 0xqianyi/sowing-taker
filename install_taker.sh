@@ -1,8 +1,15 @@
 #!/bin/bash
 
+# Installation script for Taker Quest environment on Ubuntu
+# Sets up virtual environment, installs dependencies, creates private_keys.txt and proxies.txt
+# Does not run the script
+
 # Set project directory
 PROJECT_DIR=~/taker_quest
 echo "Creating project directory: $PROJECT_DIR"
+
+# Clean up existing directory to avoid permission issues
+rm -rf $PROJECT_DIR
 mkdir -p $PROJECT_DIR
 cd $PROJECT_DIR
 
@@ -79,7 +86,7 @@ logging.Logger.success = success
 ua = UserAgent()
 API_BASE_URL = 'https://sowing-api.taker.xyz'
 MAX_RETRIES = 5
-REFERRAL_CODE = 'AMX46BT1'
+REFERRAL_CODE = 'KTYZ3K3F'
 WALLET_DELAY = 10
 
 # Task answers
@@ -91,14 +98,14 @@ TASK_ANSWERS = [
 
 def read_file_lines(filename):
     if not os.path.exists(filename):
-        logger.error(f"File {filename} does not exist")
+        logger.error(f"文件 {filename} 不存在")
         return []
     with open(filename, 'r') as f:
         return [line.strip() for line in f if not line.startswith('#')]
 
 def extract_proxy_ip(proxy):
     if not proxy:
-        return "Direct"
+        return "直连"
     match = re.search(r'(?:(?:http|socks5)://)?(?:[^@]+@)?([\d.]+:\d+)', proxy)
     return match.group(1) if match else proxy
 
@@ -129,26 +136,26 @@ wallets = []
 private_keys = read_file_lines('private_keys.txt')
 proxies = read_file_lines('proxies.txt')
 if not private_keys:
-    logger.error("No private keys found, exiting")
+    logger.error("未找到私钥，退出程序")
     exit(1)
 for i, key in enumerate(private_keys):
     try:
         account = Account.from_key(key)
         proxy = proxies[i] if i < len(proxies) and proxies[i] else None
         wallets.append({
-            'account_id': f"Account{i+1}",
+            'account_id': f"账户{i+1}",
             'private_key': key,
             'address': account.address,
             'proxy': proxy,
             'proxy_ip': extract_proxy_ip(proxy),
-            'status': 'Unauthenticated',
+            'status': '未认证',
             'points': 0,
             'next_timestamp': 0,
             'answered': False,
             'claimed': False
         })
     except Exception as e:
-        logger.error(f"Invalid private key {key[:6]}...: {str(e)}")
+        logger.error(f"无效私钥 {key[:6]}...: {str(e)}")
 
 def api_request(wallet, url, method='GET', data=None, auth_token=None, retries=MAX_RETRIES):
     session = requests.Session()
@@ -171,36 +178,36 @@ def api_request(wallet, url, method='GET', data=None, auth_token=None, retries=M
             try:
                 data = response.json()
             except ValueError as e:
-                logger.warning(f"JSON parse error: {str(e)}, status: {response.status_code}, response: {response.text[:100]}")
-                raise Exception(f"JSON parse error: {str(e)}, status: {response.status_code}")
+                logger.warning(f"JSON解析失败: {str(e)}, 状态码: {response.status_code}, 响应内容: {response.text[:100]}")
+                raise Exception(f"JSON解析失败: {str(e)}, 状态码: {response.status_code}")
             if data.get('code') != 200:
                 error_msg = data.get('message', 'Unknown error')
                 if 'Rewards cannot be claimed repeatedly' in error_msg:
                     wallet['claimed'] = True
-                    logger.info(f"Already claimed, marked as completed")
+                    logger.info(f"已领取过奖励，标记为已完成")
                     return None
                 if 'Tasks cannot be repeated' in error_msg or 'task is not exist' in error_msg:
                     wallet['answered'] = True
-                    logger.info(f"Task already answered or does not exist, marked as answered")
+                    logger.info(f"已答题或任务不存在，标记为已答题")
                     return None
-                raise Exception(f"Request failed: {error_msg}, status: {response.status_code}")
+                raise Exception(f"请求失败: {error_msg}, 状态码: {response.status_code}")
             return data['result']
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 429:
-                logger.warning(f"Rate limit (HTTP 429), waiting 30s")
+                logger.warning(f"速率限制 (HTTP 429)，等待30秒")
                 time.sleep(30)
                 continue
             if attempt < retries:
-                logger.warning(f"Request failed (attempt {attempt+1}/{retries}): {str(e)}, status: {e.response.status_code}")
+                logger.warning(f"请求失败 (尝试 {attempt+1}/{retries}): {str(e)}, 状态码: {e.response.status_code}")
                 time.sleep(1)
                 continue
-            raise Exception(f"Request failed: {str(e)}, status: {e.response.status_code if e.response else 'unknown'}")
+            raise Exception(f"请求失败: {str(e)}, 状态码: {e.response.status_code if e.response else '未知'}")
         except Exception as e:
             if attempt < retries:
-                logger.warning(f"Request failed (attempt {attempt+1}/{retries}): {str(e)}")
+                logger.warning(f"请求失败 (尝试 {attempt+1}/{retries}): {str(e)}")
                 time.sleep(1)
                 continue
-            raise Exception(f"Request failed: {str(e)}")
+            raise Exception(f"请求失败: {str(e)}")
         finally:
             session.close()
 
@@ -212,7 +219,7 @@ def generate_nonce(wallet):
         nonce_match = result.split('Nonce: ')[-1].strip() if 'Nonce: ' in result else None
         if nonce_match:
             return nonce_match
-    raise Exception("Failed to generate nonce")
+    raise Exception("无法生成Nonce")
 
 def login(wallet, nonce):
     message = f"Taker quest needs to verify your identity to prevent unauthorized access. Please confirm your sign-in details below:\n\naddress: {wallet['address']}\n\nNonce: {nonce}"
@@ -241,7 +248,7 @@ def check_task_status(wallet, token):
     return task_status, result
 
 def verify_task(wallet, token):
-    logger.info(f"Starting task verification")
+    logger.info(f"答题")
     for answer in TASK_ANSWERS:
         data = {
             "taskId": 6,
@@ -251,10 +258,10 @@ def verify_task(wallet, token):
         result = api_request(wallet, f"{API_BASE_URL}/task/check", 'POST', data, auth_token=token)
         if result is None:
             break
-    logger.success(f"Task verification completed")
+    logger.success(f"答题完成")
 
 def claim_reward(wallet, token):
-    logger.info(f"Claiming points and NFT")
+    logger.info(f"领取积分和NFT")
     url = f"{API_BASE_URL}/task/claim-reward?taskId=6"
     user_info_before = get_user_info(wallet, token)
     points_before = user_info_before.get('takerPoints', 0)
@@ -263,20 +270,20 @@ def claim_reward(wallet, token):
     points_after = user_info_after.get('takerPoints', 0)
     if points_after >= points_before + 200:
         wallet['claimed'] = True
-        logger.success(f"Claim successful, points: {points_before} -> {points_after}")
+        logger.success(f"领取成功，积分变化: {points_before} -> {points_after}")
     elif result is not None:
-        logger.success(f"Claim successful: {result}, points: {points_before} -> {points_after}")
+        logger.success(f"领取成功: {result}, 积分变化: {points_before} -> {points_after}")
     elif wallet['claimed']:
-        logger.info(f"Already claimed, points: {points_before} -> {points_after}")
+        logger.info(f"已领取，积分变化: {points_before} -> {points_after}")
     else:
-        logger.warning(f"Claim failed, points: {points_before} -> {points_after}")
+        logger.warning(f"领取失败，积分变化: {points_before} -> {points_after}")
     return result
 
 def format_time_remaining(timestamp):
     now = datetime.now().timestamp() * 1000
     time_left = timestamp - now
     if time_left <= 0:
-        return "Ready to sign in"
+        return "可签到"
     hours = int(time_left // (1000 * 60 * 60))
     minutes = int((time_left % (1000 * 60 * 60)) // (1000 * 60))
     seconds = int((time_left % (1000 * 60)) // 1000)
@@ -287,62 +294,62 @@ class TakerBot:
         self.tokens = {}
 
     def process_wallet(self, wallet, index, total_wallets):
-        logger.info(f"Processing {index+1}/{total_wallets} | {wallet['account_id']} | {shorten_address(wallet['address'])} | Proxy: {wallet['proxy_ip']}")
+        logger.info(f"处理账户 {index+1}/{total_wallets} | {wallet['account_id']} | {shorten_address(wallet['address'])} | 代理IP: {wallet['proxy_ip']}")
         try:
             if wallet['address'] not in self.tokens:
                 nonce = generate_nonce(wallet)
                 token = login(wallet, nonce)
                 self.tokens[wallet['address']] = token
-                logger.success(f"Login successful")
+                logger.success(f"登录成功")
             user_info = get_user_info(wallet, self.tokens[wallet['address']])
             wallet['points'] = user_info.get('takerPoints', 0)
             if user_info.get('nextTimestamp', 0) > datetime.now().timestamp() * 1000:
-                wallet['status'] = 'Active'
+                wallet['status'] = '活跃'
                 wallet['next_timestamp'] = user_info['nextTimestamp']
-                logger.info(f"Already signed in, points: {wallet['points']}, time left: {format_time_remaining(wallet['next_timestamp'])}")
+                logger.info(f"已签到，积分: {wallet['points']}, 剩余时间: {format_time_remaining(wallet['next_timestamp'])}")
             else:
                 perform_sign_in(wallet, self.tokens[wallet['address']])
                 user_info = get_user_info(wallet, self.tokens[wallet['address']])
                 wallet['points'] = user_info.get('takerPoints', 0)
-                wallet['status'] = 'Active'
+                wallet['status'] = '活跃'
                 wallet['next_timestamp'] = user_info.get('nextTimestamp', 0)
-                logger.success(f"Sign-in successful, points: {wallet['points']}")
+                logger.success(f"签到成功，积分: {wallet['points']}")
             task_status, task_details = check_task_status(wallet, self.tokens[wallet['address']])
             if wallet['points'] >= 300:
                 wallet['claimed'] = True
                 wallet['answered'] = True
             if task_status >= 1 or wallet['answered'] or wallet['claimed']:
-                logger.info(f"Task or claim already completed, skipping")
+                logger.info(f"已完成答题或领取，跳过")
                 return user_info, True
             verify_task(wallet, self.tokens[wallet['address']])
             wallet['answered'] = True
             claim_reward(wallet, self.tokens[wallet['address']])
             user_info = get_user_info(wallet, self.tokens[wallet['address']])
             wallet['points'] = user_info.get('takerPoints', 0)
-            logger.success(f"All tasks completed, current points: {wallet['points']}")
+            logger.success(f"全部完成，当前积分: {wallet['points']}")
             return user_info, True
         except Exception as e:
-            wallet['status'] = f'Failed: {str(e)}'
-            logger.error(f"Operation failed: {str(e)}")
+            wallet['status'] = f'失败: {str(e)}'
+            logger.error(f"操作失败: {str(e)}")
             return None, False
         finally:
             time.sleep(WALLET_DELAY + random.uniform(0, 3))
 
     def display_status(self):
-        logger.info("Current status:")
+        logger.info("当前状态：")
         for wallet in wallets:
-            logger.info(f"{shorten_address(wallet['address'])} | Points: {wallet['points']} | Status: {wallet['status']} | Time left: {format_time_remaining(wallet['next_timestamp']) if wallet['next_timestamp'] else 'Ready to sign in'} | Answered: {wallet['answered']} | Claimed: {wallet['claimed']}")
+            logger.info(f"{shorten_address(wallet['address'])} | 积分: {wallet['points']} | 状态: {wallet['status']} | 剩余时间: {format_time_remaining(wallet['next_timestamp']) if wallet['next_timestamp'] else '可签到'} | 已答题: {wallet['answered']} | 已领取: {wallet['claimed']}")
 
     def cleanup(self):
-        logger.info("Cleaning up and exiting...")
-        logger.info("Final status:")
+        logger.info("正在清理并退出...")
+        logger.info("最终状态：")
         for wallet in wallets:
-            logger.info(f"{wallet['account_id']} | {shorten_address(wallet['address'])} | Points: {wallet['points']} | Status: {wallet['status']} | Time left: {format_time_remaining(wallet['next_timestamp']) if wallet['next_timestamp'] else 'Ready to sign in'} | Answered: {wallet['answered']} | Claimed: {wallet['claimed']}")
-        logger.info("Bot exited, logs saved to checkin.log")
+            logger.info(f"{wallet['account_id']} | {shorten_address(wallet['address'])} | 积分: {wallet['points']} | 状态: {wallet['status']} | 剩余时间: {format_time_remaining(wallet['next_timestamp']) if wallet['next_timestamp'] else '可签到'} | 已答题: {wallet['answered']} | 已领取: {wallet['claimed']}")
+        logger.info("Bot已退出，日志已保存至checkin.log")
 
     def run(self):
         total_wallets = len(wallets)
-        logger.info(f"Starting Taker Bot, processing {total_wallets} wallets")
+        logger.info(f"启动Taker Bot，处理 {total_wallets} 个钱包")
         try:
             while True:
                 failed_wallets = []
@@ -352,14 +359,14 @@ class TakerBot:
                         failed_wallets.append(wallet)
                     logger.info("")
                 if failed_wallets:
-                    logger.info(f"Retrying {len(failed_wallets)} failed wallets")
+                    logger.info(f"重试 {len(failed_wallets)} 个失败的钱包")
                     for i, wallet in enumerate(failed_wallets[:]):
                         user_info, success = self.process_wallet(wallet, i, len(failed_wallets))
                         if success:
                             failed_wallets.remove(wallet)
                         logger.info("")
                 self.display_status()
-                logger.info(f"All wallets processed, waiting 300s before next round...")
+                logger.info(f"所有账户处理完毕，等待300秒后重新开始...")
                 time.sleep(300)
         except KeyboardInterrupt:
             self.cleanup()
@@ -376,10 +383,10 @@ chmod +x taker_checkin.py
 # Deactivate virtual environment
 deactivate
 
-echo "Installation complete!"
-echo "Files created: private_keys.txt, proxies.txt, taker_checkin.py"
-echo "To run the script:"
+echo "安装完成！"
+echo "已创建文件: private_keys.txt, proxies.txt, taker_checkin.py"
+echo "运行脚本步骤:"
 echo "  cd $PROJECT_DIR"
 echo "  source venv/bin/activate"
 echo "  python taker_checkin.py"
-echo "Edit private_keys.txt to add your private keys before running."
+echo "运行前请编辑 private_keys.txt 添加私钥。"
